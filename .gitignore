@@ -3,3 +3,8 @@
 vendor
 
 composer.lock
+
+.direnv
+
+result
+result-*
