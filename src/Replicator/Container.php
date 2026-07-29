@@ -141,7 +141,7 @@ class Container extends Nette\Forms\Container
 
 		($this->factoryCallback)($container);
 
-		return $this->created[$container->getName()] = $container;
+		return $this->created[$name] = $container;
 	}
 
 	private function getFirstControlName(): ?string
