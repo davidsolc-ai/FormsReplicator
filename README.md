@@ -30,6 +30,40 @@ composer require kdyby/forms-replicator
 
 **Note:** Version 3.0 requires `nette/component-model >= 3.1.0`.
 
+## Local compatibility testing
+
+Enter the reproducible development shell with [Nix](https://nixos.org/) and [direnv](https://direnv.net/):
+
+```sh
+direnv allow
+```
+
+The shell provides PHP 8.5, Composer, Just, the Docker CLI, ShellCheck, Actionlint, and the Nix formatter. Install highest dependencies locally for development and editor indexing with:
+
+```sh
+just install
+```
+
+Composer runs as your local user, so `vendor/` remains writable by your editor and development tools.
+
+Run the local CI suite against the installed dependencies with `just ci`.
+
+Docker is the compatibility source of truth. Run the complete PHP and dependency matrix with:
+
+```sh
+just matrix
+```
+
+The matrix copies source into ephemeral images instead of bind-mounting the checkout. Container-owned dependencies and lock files therefore never alter host permissions; only Composer's immutable download cache is shared through a Docker volume.
+
+The seven cells cover PHP 8.2, 8.3, and 8.4 with lowest and highest Composer dependencies, plus PHP 8.5 with highest dependencies. PHP 8.5 with lowest dependencies is excluded because component-model 3.1 itself emits PHP 8.5 deprecations.
+
+To run one focused cell, pass its PHP version and dependency set directly:
+
+```sh
+just cell 8.2 lowest
+```
+
 ## Overview
 
 - [Learn more in the documentation](https://github.com/Kdyby/FormsReplicator/blob/master/docs/en/index.md)

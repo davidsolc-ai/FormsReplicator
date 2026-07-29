@@ -1,0 +1,12 @@
+.git
+.direnv
+.idea
+vendor
+composer.lock
+result
+result-*
+tests/coverage.dat
+tests/**/*.actual
+tests/**/*.expected
+tests/tmp/*
+!tests/tmp/.gitignore

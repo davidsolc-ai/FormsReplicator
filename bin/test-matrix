@@ -1,0 +1,127 @@
+#!/bin/sh
+
+set -eu
+
+usage() {
+	printf 'Usage: %s [<php-version> <lowest|highest>]\n' "$0" >&2
+}
+
+case $# in
+	0)
+		php_versions='8.2 8.3 8.4 8.5'
+		dependency_sets='lowest highest'
+		;;
+	2)
+		case $1 in
+			8.2|8.3|8.4|8.5) ;;
+			*)
+				printf 'Unsupported PHP version: %s\n' "$1" >&2
+				usage
+				exit 2
+				;;
+		esac
+
+		case $2 in
+			lowest|highest) ;;
+			*)
+				printf 'Unsupported dependency set: %s\n' "$2" >&2
+				usage
+				exit 2
+				;;
+		esac
+
+		if [ "$1" = '8.5' ] && [ "$2" = 'lowest' ]; then
+			printf 'PHP 8.5 with lowest dependencies is not supported.\n' >&2
+			exit 2
+		fi
+
+		php_versions=$1
+		dependency_sets=$2
+		;;
+	*)
+		usage
+		exit 2
+		;;
+esac
+
+project_root=$(CDPATH='' cd "$(dirname "$0")/.." && pwd)
+cd "$project_root"
+
+cache_volume='forms-replicator-composer-download-cache'
+
+cleanup_exit() {
+	status=$?
+	trap - 0
+	[ -z "$iidfile" ] || rm -f "$iidfile" || :
+	exit "$status"
+}
+
+cleanup_signal() {
+	signal=$1
+	trap - 0 1 2 15
+	[ -z "$iidfile" ] || rm -f "$iidfile" || :
+	kill -s "$signal" "$$"
+}
+
+for php_version in $php_versions; do
+	image="forms-replicator-test-matrix:php-${php_version}"
+	iidfile=''
+	trap cleanup_exit 0
+	trap 'cleanup_signal HUP' 1
+	trap 'cleanup_signal INT' 2
+	trap 'cleanup_signal TERM' 15
+	iidfile=$(mktemp "${TMPDIR:-/tmp}/forms-replicator-test-matrix.XXXXXX")
+
+	printf '\nBuilding source image for PHP %s\n' "$php_version"
+	if docker build \
+		--build-arg "PHP_VERSION=$php_version" \
+		--file .docker/Dockerfile \
+		--iidfile "$iidfile" \
+		--tag "$image" \
+		.; then
+		:
+	else
+		status=$?
+		printf 'Matrix image build failed: PHP %s\n' "$php_version" >&2
+		exit "$status"
+	fi
+
+	IFS= read -r image_id < "$iidfile" || [ -n "$image_id" ]
+	rm -f "$iidfile"
+	trap - 0 1 2 15
+
+	for dependency_set in $dependency_sets; do
+		cell="PHP $php_version / $dependency_set"
+		if [ "$php_version" = '8.5' ] && [ "$dependency_set" = 'lowest' ]; then
+			printf '\nSkipping unsupported matrix cell: %s\n' "$cell"
+			continue
+		fi
+
+		printf '\nRunning matrix cell: %s\n' "$cell"
+
+		case $dependency_set in
+			lowest)
+				commands='composer update --prefer-dist --no-interaction --no-progress --prefer-lowest --prefer-stable && composer phpstan && composer test'
+				;;
+			highest)
+				commands='composer update --prefer-dist --no-interaction --no-progress && composer ci'
+				;;
+		esac
+
+		if docker run \
+			--rm \
+			--env COMPOSER_ALLOW_SUPERUSER=1 \
+			--env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+			--volume "$cache_volume:/tmp/composer-cache/files" \
+			"$image_id" \
+			sh -c "$commands"; then
+			printf 'Matrix cell passed: %s\n' "$cell"
+		else
+			status=$?
+			printf 'Matrix cell failed: %s\n' "$cell" >&2
+			exit "$status"
+		fi
+	done
+done
+
+printf '\nAll selected matrix cells passed.\n'
