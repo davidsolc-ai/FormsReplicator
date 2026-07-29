@@ -66,8 +66,8 @@ class Container extends Nette\Forms\Container
 	 */
 	public function __construct(callable $factory, int $createDefault = 0, bool $forceDefault = FALSE)
 	{
-		$this->monitor(Nette\Application\UI\Presenter::class);
-		$this->monitor(Nette\Forms\Form::class);
+		$this->monitor(Nette\Forms\Form::class, $this->attached(...));
+		$this->monitor(Nette\Application\UI\Presenter::class, $this->attached(...));
 
 		try {
 			$this->factoryCallback = Closure::fromCallable($factory);
@@ -94,8 +94,6 @@ class Container extends Nette\Forms\Container
 	 */
 	protected function attached(Nette\ComponentModel\IComponent $obj): void
 	{
-		parent::attached($obj);
-
 		if (
 			!$obj instanceof Nette\Application\UI\Presenter
 			&&
@@ -143,18 +141,27 @@ class Container extends Nette\Forms\Container
 
 		($this->factoryCallback)($container);
 
-		return $this->created[$container->name] = $container;
+		return $this->created[$container->getName()] = $container;
 	}
 
 	private function getFirstControlName(): ?string
 	{
-		$controls = array_filter(
-			$this->getComponents(),
-			fn ($component): bool => $component instanceof Nette\Forms\Control,
-		);
+		$controls = $this->getControlComponents();
 		$firstControl = reset($controls);
 
 		return $firstControl ? $firstControl->getName() : NULL;
+	}
+
+	/**
+	 * @return array<Nette\ComponentModel\IComponent&Nette\Forms\Control>
+	 */
+	private function getControlComponents(): array
+	{
+		// TODO: The first instanceof check should be redundant but PHPStan infers getComponent() returns untyped array.
+		return array_filter(
+			$this->getComponents(),
+			fn ($component): bool => $component instanceof Nette\ComponentModel\IComponent && $component instanceof Nette\Forms\Control,
+		);
 	}
 
 	protected function createContainer(): Nette\Forms\Container
@@ -274,8 +281,8 @@ class Container extends Nette\Forms\Container
 	 */
 	public function remove(Nette\ComponentModel\Container $container, bool $cleanUpGroups = FALSE): void
 	{
-		if ($container->parent !== $this) {
-			throw new Nette\InvalidArgumentException('Given component ' . $container->name . ' is not children of ' . $this->name . '.');
+		if ($container->getParent() !== $this) {
+			throw new Nette\InvalidArgumentException('Given component ' . $container->getName() . ' is not children of ' . $this->getName() . '.');
 		}
 
 		// to check if form was submitted by this one
@@ -379,11 +386,8 @@ class Container extends Nette\Forms\Container
 	public function isAllFilled(array $exceptChildren = []): bool
 	{
 		$components = [];
-		$controls = array_filter(
-			$this->getComponents(),
-			fn ($component): bool => $component instanceof Nette\Forms\Control,
-		);
-		foreach ($controls as $control) {
+
+		foreach ($this->getControlComponents() as $control) {
 			if (($name = $control->getName()) !== null) {
 				$components[] = $name;
 			}
@@ -452,7 +456,7 @@ class Container extends Nette\Forms\Container
 				$_this->onClick[] = function (Nette\Forms\Controls\SubmitButton $button) use ($callback) {
 					/** @var self $replicator */
 					$replicator = $button->lookup(static::class);
-					$container = $button->parent;
+					$container = $button->getParent();
 					\assert($container instanceof Nette\ComponentModel\Container);
 					if (is_callable($callback)) {
 						$callback($replicator, $container);

@@ -33,6 +33,31 @@ class ContainerTest extends TestCase
 		Assert::type(Nette\Forms\Controls\TextInput::class, $replicator[1000]['name']);
 	}
 
+	public function testStandaloneFormAttachmentUsesProtectedHook(): void
+	{
+		$form = new Nette\Forms\Form();
+		$replicator = new TrackingContainer(static function (): void {
+		}, 1);
+
+		$form['users'] = $replicator;
+
+		Assert::same([$form], $replicator->attachments);
+		Assert::same(1, iterator_count($replicator->getContainers()));
+	}
+
+	public function testUiFormAttachmentsUseProtectedHook(): void
+	{
+		$form = new BaseForm();
+		$replicator = new TrackingContainer(static function (): void {
+		}, 1);
+		$form['users'] = $replicator;
+
+		$presenter = $this->connectForm($form);
+
+		Assert::same([$form, $presenter], $replicator->attachments);
+		Assert::same(1, iterator_count($replicator->getContainers()));
+	}
+
 	public function testRenderingAttachAfterDefinition(): void
 	{
 		$form = new BaseForm();
@@ -332,12 +357,20 @@ class ContainerTest extends TestCase
 
 		return $presenter;
 	}
+}
 
-	// TODO: add tests using standalone \Nette\Forms\Form and not the UI\Form.
-	// https://github.com/Kdyby/Replicator/issues/40
-	// The Replicator can't be used with standalone \Nette\Forms\Form (so without the UI\Form).
-	// Problem is that attached is not triggered, so values from Request are not populated to the container.
+class TrackingContainer extends Container
+{
+	/**
+	 * @var list<Nette\ComponentModel\IComponent>
+	 */
+	public array $attachments = [];
 
+	protected function attached(Nette\ComponentModel\IComponent $obj): void
+	{
+		$this->attachments[] = $obj;
+		parent::attached($obj);
+	}
 }
 
 class BaseForm extends Nette\Application\UI\Form
