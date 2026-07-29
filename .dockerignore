@@ -1,0 +1,9 @@
+.git
+.idea
+vendor
+composer.lock
+tests/coverage.dat
+tests/**/*.actual
+tests/**/*.expected
+tests/tmp/*
+!tests/tmp/.gitignore

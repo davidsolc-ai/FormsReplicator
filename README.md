@@ -30,6 +30,24 @@ composer require kdyby/forms-replicator
 
 **Note:** Version 3.0 requires `nette/component-model >= 3.1.0`.
 
+## Local compatibility testing
+
+Local compatibility testing requires Docker and Make. Docker is the primary local compatibility runner. Run the complete PHP and dependency matrix with:
+
+```sh
+make test-matrix
+```
+
+The six cells cover PHP 8.2, 8.3, and 8.4, each with the lowest and highest Composer dependencies.
+
+To run one focused cell, pass its PHP version and dependency set directly:
+
+```sh
+./bin/test-matrix 8.2 lowest
+```
+
+You can optionally emulate the GitHub Actions workflow with `nix shell nixpkgs#act -c act`. The `act` tool substitutes its own runner images for GitHub-hosted runners and does not support every GitHub Actions feature or behavior. It is useful for workflow emulation, but the Docker matrix is the compatibility source of truth.
+
 ## Overview
 
 - [Learn more in the documentation](https://github.com/Kdyby/FormsReplicator/blob/master/docs/en/index.md)
