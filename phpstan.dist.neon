@@ -4,10 +4,55 @@ includes:
     - vendor/phpstan/phpstan-deprecation-rules/rules.neon
     - vendor/phpstan/phpstan-nette/extension.neon
     - vendor/phpstan/phpstan-nette/rules.neon
-    - phpstan-baseline.neon
 
 parameters:
     level: max
     paths:
         - src/
     treatPhpDocTypesAsCertain: false
+
+    ignoreErrors:
+        -
+            message: '''
+                #^Call to deprecated method attached\(\) of class Kdyby\\Replicator\\Container\:
+                use monitor\(\$type, \$attached\)$#
+            '''
+            identifier: method.deprecated
+            count: 2
+            # Only occurs with phpstan/phpstan-deprecation-rules ≥ 2.0.2 and nette/component-model ≥ 3.0.0 and < 4.0.0
+            reportUnmatched: false
+            path: src/Replicator/Container.php
+
+        # https://github.com/phpstan/phpstan-nette/issues/141
+        -
+            message: '#^Instanceof between Nette\\ComponentModel\\IComponent and Nette\\ComponentModel\\IComponent will always evaluate to true\.$#'
+            identifier: instanceof.alwaysTrue
+            # Only occurs with component-model < 4.0.0
+            reportUnmatched: false
+            count: 2
+            path: src/Replicator/Container.php
+
+        -
+            message: '#^Parameter \#1 \$array of function array_filter expects array, Iterator\<int\|string, Nette\\ComponentModel\\IComponent\> given\.$#'
+            identifier: argument.type
+            # Only occurs with component-model < 4.0.0
+            reportUnmatched: false
+            count: 3
+            path: src/Replicator/Container.php
+
+        -
+            message: '#^Parameter \#1 \$array of function array_filter expects array, Iterator\<int\|string, Nette\\ComponentModel\\IComponent\>\|list\<Nette\\ComponentModel\\IComponent\> given\.$#'
+            identifier: argument.type
+            # Only occurs with component-model < 4.0.0
+            reportUnmatched: false
+            count: 2
+            path: src/Replicator/Container.php
+
+        -
+            # https://github.com/nette/forms/pull/354
+            message: '#^Parameter \#2 \$callback of static method Nette\\Forms\\Container\:\:extensionMethod\(\) expects callable\(static\)\: mixed, Closure\(Nette\\Forms\\Container, string, callable, int\=, bool\=\)\: static given\.$#'
+            identifier: argument.type
+            # Only occurs with forms ≥ 3.3.0
+            reportUnmatched: false
+            count: 1
+            path: src/Replicator/Container.php
